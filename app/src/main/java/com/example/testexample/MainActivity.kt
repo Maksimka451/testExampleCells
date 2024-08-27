@@ -4,9 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,15 +29,21 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,9 +51,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
 import com.example.testexample.ui.theme.TestExampleTheme
 import kotlin.random.Random
 
@@ -54,204 +68,140 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TestExampleTheme {
-                CellCreationApp()
+                ChatCreationApp()
             }
         }
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CellCreationApp() {
-    var cells by remember { mutableStateOf(listOf<Cell>()) }
-    var consecutiveAliveCount by remember { mutableStateOf(0) }
-    var consecutiveDeadCount by remember { mutableStateOf(0) }
-
+fun ChatCreationApp() {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Box(
+                    Text(
+                        text = "Клеточное наполнение",
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "Клеточное наполнение",
-                            fontSize = 20.sp,
-                            color = Color.White
-                        )
-                    }
-                        },
+                        textAlign = TextAlign.Center,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(Color(0xFF9C27B0))
             )
         },
-        content = { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF9C27B0), // Пурпурный цвет
-                                Color(0xFF4A0072)  // Тёмно-пурпурный цвет
-                            )
-                        )
-                    )
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-
-                // Список клеток
-                LazyColumn(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(cells) { cell ->
-                        CellBanner(cell)
-                    }
-                }
-
-                // Кнопка "Сотворить"
-                Button(
-                    onClick = {
-                        addCell(
-                            cells = cells,
-                            consecutiveAliveCount = consecutiveAliveCount,
-                            consecutiveDeadCount = consecutiveDeadCount,
-                            onUpdateCells = { newCells -> cells = newCells },
-                            onAliveCountChange = { newCount -> consecutiveAliveCount = newCount },
-                            onDeadCountChange = { newCount -> consecutiveDeadCount = newCount }
-                        )
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)), // Устанавливаем цвет кнопки
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                        .height(50.dp)
-                ) {
-                    Text(
-                        text = "Сотворить",
-                        color = Color.White,
-                        fontSize = 18.sp
-                    )
-                }
-            }
-        }
+        content = { padding ->
+            CellCreationScreen(Modifier.padding(padding))
+        },
+        containerColor = Color(0xFF210336)
     )
 }
 
-// Функция для добавления клетки
-fun addCell(
-    cells: List<Cell>,
-    consecutiveAliveCount: Int,
-    consecutiveDeadCount: Int,
-    onUpdateCells: (List<Cell>) -> Unit,
-    onAliveCountChange: (Int) -> Unit,
-    onDeadCountChange: (Int) -> Unit
-) {
-    val newCell = if (Random.nextBoolean()) Cell.Alive else Cell.Dead
-
-    val updatedCells = cells.toMutableList().apply { add(newCell) }
-
-    // Логика для отслеживания подряд идущих живых и мёртвых клеток
-    var newAliveCount = consecutiveAliveCount
-    var newDeadCount = consecutiveDeadCount
-
-    if (newCell is Cell.Alive) {
-        newAliveCount++
-        newDeadCount = 0
-    } else {
-        newDeadCount++
-        newAliveCount = 0
-    }
-
-    // Проверка на три подряд живые клетки для создания жизни
-    if (newAliveCount == 3) {
-        updatedCells.add(Cell.Life)
-        newAliveCount = 0
-    }
-
-    // Проверка на три подряд мёртвые клетки для удаления жизни
-    if (newDeadCount == 3) {
-        val lifeIndex = updatedCells.indexOfLast { it is Cell.Life }
-        if (lifeIndex != -1) {
-            updatedCells.removeAt(lifeIndex)
-        }
-        newDeadCount = 0
-    }
-
-    // Обновляем состояние
-    onUpdateCells(updatedCells)
-    onAliveCountChange(newAliveCount)
-    onDeadCountChange(newDeadCount)
-}
-
-// Баннер для клетки
 @Composable
-fun CellBanner(cell: Cell) {
-    val text: String
-    val subText: String
-    val icon: ImageVector
-    val color: Color
+fun CellCreationScreen(modifier: Modifier = Modifier) {
+    // Сохраняем список клеток
+    val cells = rememberSaveable(
+        saver = listSaver(
+            save = { stateList -> stateList.toList() },
+            restore = { it.toMutableStateList() }
+        )
+    ) { mutableStateListOf<Triple<String, Int, String>>() }
 
-    when (cell) {
-        is Cell.Alive -> {
-            text = "Живая"
-            subText = "и шевелится!"
-            icon = Icons.Filled.Favorite
-            color = Color.Green
-        }
-        is Cell.Dead -> {
-            text = "Мертвая"
-            subText = "или прикидывается"
-            icon = Icons.Filled.Clear
-            color = Color.Red
-        }
-        is Cell.Life -> {
-            text = "Жизнь"
-            subText = "Ку-ку!"
-            icon = Icons.Filled.Star
-            color = Color.Yellow
-        }
-    }
+    var consecutiveAliveCells by rememberSaveable { mutableStateOf(0) }
+    var consecutiveDeadCells by rememberSaveable { mutableStateOf(0) }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.Start
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(Color(0xFF8A2BE2), Color(0xFF210336))
+                )
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = rememberVectorPainter(image = icon),
-                contentDescription = text,
-                tint = color,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(text = text, color = Color.Black, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = subText, color = Color.Black, fontSize = 12.sp)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(cells) { cell ->
+                CellBanner(cell)
             }
+        }
+
+        Button(
+            onClick = {
+                val newCellIsAlive = (0..1).random() == 0
+                if (newCellIsAlive) {
+                    cells.add(Triple("Живая", R.drawable.alive, "и шевелится!"))
+                    consecutiveAliveCells++
+                    consecutiveDeadCells = 0
+                } else {
+                    cells.add(Triple("Мертвая", R.drawable.reaper, "или прикидывается"))
+                    consecutiveAliveCells = 0
+                    consecutiveDeadCells++
+                }
+
+                // Логика создания "Жизни"
+                if (consecutiveAliveCells >= 3) {
+                    cells.add(Triple("Жизнь", R.drawable.fertilization, "Ку-ку!"))
+                    consecutiveAliveCells = 0
+                }
+
+                // Логика удаления жизни
+                if (consecutiveDeadCells >= 3) {
+                    val lifeIndex = cells.indexOfLast { it.first == "Жизнь" }
+                    if (lifeIndex != -1) {
+                        cells.removeAt(lifeIndex)
+                    }
+                    consecutiveDeadCells = 0
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = ButtonDefaults.buttonColors(Color(0xFF9C27B0))
+        ) {
+            Text(text = "СОТВОРИТЬ", color = Color.White, fontSize = 18.sp)
         }
     }
 }
 
-// Определение клеток
-sealed class Cell {
-    object Alive : Cell()
-    object Dead : Cell()
-    object Life : Cell()
+@Composable
+fun CellBanner(cell: Triple<String, Int, String>) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .background(Color.White, shape = MaterialTheme.shapes.medium)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(id = cell.second),
+            contentDescription = null,
+            modifier = Modifier.size(40.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(text = cell.first, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(text = cell.third, fontSize = 14.sp, color = Color.Gray)
+        }
+    }
 }
+
+
 
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     TestExampleTheme {
-        CellCreationApp()
+        ChatCreationApp()
     }
 }
